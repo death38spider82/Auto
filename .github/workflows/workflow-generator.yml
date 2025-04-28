@@ -1,0 +1,62 @@
+name: Workflow Generator
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - '.github/workflows/workflow-generator.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight (optional)
+
+jobs:
+  generate-workflow:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate random workflow
+        id: generate
+        run: |
+          # Create directory if it doesn't exist
+          mkdir -p .github/workflows
+          
+          # Generate random filename (8 alphanumeric chars)
+          RANDOM_NAME=$(head /dev/urandom | tr -dc a-z0-9 | head -c8)
+          FILENAME=".github/workflows/${RANDOM_NAME}.yml"
+          
+          # Create workflow content
+          cat <<EOF > $FILENAME
+          name: Auto-generated Workflow ($RANDOM_NAME)
+          
+          on:
+            workflow_dispatch:
+          
+          jobs:
+            hello:
+              runs-on: ubuntu-latest
+              steps:
+                - name: Greeting
+                  run: |
+                    echo "This workflow was auto-generated"
+                    echo "Filename: $RANDOM_NAME.yml"
+                    echo "Generated at: $(date)"
+          EOF
+          
+          echo "filename=$FILENAME" >> $GITHUB_OUTPUT
+          echo "Generated new workflow: $FILENAME"
+
+      - name: Commit and push
+        if: steps.generate.outputs.filename
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add .github/workflows/
+          git commit -m "Auto-generated workflow: $(basename ${{ steps.generate.outputs.filename }})"
+          git push
